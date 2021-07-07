@@ -1,3 +1,4 @@
+from blog import hashing
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, status, Response
@@ -6,7 +7,8 @@ from sqlalchemy.sql.expression import delete, true
 from starlette.requests import Request
 from starlette.status import HTTP_201_CREATED
 
-from . import  models, schemas
+
+from . import  models, schemas, hashing
 from .database import SessionLocal, engine
 import blog
 app = FastAPI()
@@ -75,16 +77,32 @@ def show(id: int, response: Response, db: Session= Depends(get_db)):
     return blog
 
 
+
+
 ######### User
-@app.post('/user')
+
+
+@app.post('/user', response_model=schemas.ShowUser)
 def create_user(request: schemas.User, db: Session= Depends(get_db)):
+    hashedPassword = hashing.Hash.bcript(request.password)
     new_user= models.User(
         name= request.name,
         email= request.email,
-        password= request.password
+        password= hashedPassword
 
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
+
+
+@app.get('/user/{id}', response_model=schemas.ShowUser)
+def get_user(id: int, db: Session=Depends(get_db)):
+    user = db.query(models.User).filter(
+        models.User.id == id
+    ).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+        detail='this user not found')
+    return user
